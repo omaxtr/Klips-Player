@@ -166,6 +166,17 @@
                 </select>
               </div>
               <div>
+                <label>Date Format</label>
+                <select v-model="form.dateFormat">
+                  <option value="US">US (MM/DD/YYYY)</option>
+                  <option value="EU">EU (DD/MM/YYYY)</option>
+                  <option value="ISO">ISO (YYYY-MM-DD)</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+              <div>
                 <label>Style</label>
                 <select v-model="form.infoShape">
                   <option value="box">Box</option>
@@ -444,7 +455,9 @@ export default {
         filter: 'none',
         doorColor: '#111111',
         doorTex: 'none',
-        doorImg: ''
+        doorTex: 'none',
+        doorImg: '',
+        dateFormat: 'US'
       },
 
       cfg: {}
@@ -774,13 +787,25 @@ export default {
         onlyCur: p.get('onlyCurrentGame') === 'true',
         shfl: p.get('shuffle') !== 'false',
         specG: p.get('specificGame') || '',
-        specG: p.get('specificGame') || '',
         flt: p.get('filter') || 'none',
         bgMusicUrl: p.get('bgMusicUrl') || '',
         bgMusicVol: parseInt(p.get('bgMusicVol') || 20),
         transSound: p.get('transSound') || 'vhs',
-        transUrl: p.get('transUrl') || ''
+        transUrl: p.get('transUrl') || '',
+        dateFormat: p.get('dateFormat') || 'MM/DD/YYYY HH:mm'
       };
+      // Legacy mapping
+      if (p.has('showTimer')) this.cfg.tm = p.get('showTimer') !== 'false';
+      if (p.has('showTitle')) this.cfg.sT = p.get('showTitle') !== 'false';
+      if (p.has('showClipper')) this.cfg.sC = p.get('showClipper') !== 'false';
+      if (p.has('showDate')) this.cfg.sD = p.get('showDate') !== 'false';
+      if (p.has('showGame')) this.cfg.sG = p.get('showGame') !== 'false';
+      if (p.has('shuffle')) this.cfg.shfl = p.get('shuffle') !== 'false';
+      if (p.has('onlyCurrentGame')) this.cfg.onlyCur = p.get('onlyCurrentGame') === 'true';
+      if (p.has('transSound')) this.cfg.transSound = p.get('transSound');
+      if (p.has('transUrl')) this.cfg.transUrl = p.get('transUrl');
+      if (p.has('dateFormat')) this.cfg.dateFormat = p.get('dateFormat');
+      
       document.documentElement.style.setProperty('--dur', this.cfg.dur + 's');
     },
 
@@ -1076,7 +1101,15 @@ export default {
 
     formatDate(date) {
       if (!date) return '';
-      return new Date(date).toLocaleDateString();
+      const d = new Date(date);
+      const fmt = (this.isPlayer ? this.cfg.dateFormat : this.form.dateFormat) || 'US';
+      
+      if (fmt === 'EU') {
+        return d.toLocaleDateString('en-GB'); // DD/MM/YYYY
+      } else if (fmt === 'ISO') {
+        return d.toISOString().split('T')[0]; // YYYY-MM-DD
+      }
+      return d.toLocaleDateString('en-US'); // MM/DD/YYYY
     },
 
     testAnim() {
