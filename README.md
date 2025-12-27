@@ -4,6 +4,9 @@ A highly customizable, aesthetic Twitch Clip player for OBS overlays. Featuring 
 
 ![Klips Player](https://placehold.co/600x400/1a1a1a/9146FF?text=Klips+Player+Preview)
 
+[![Deploy to GitHub Pages](https://github.com/omaxtr/Klips-Player/actions/workflows/deploy.yml/badge.svg)](https://github.com/omaxtr/Klips-Player/actions/workflows/deploy.yml)
+
+
 ## ✨ Features
 
 *   **📺 VHS Retro Mode**: Authentic CRT scanlines, static noise, and chromatic aberration effects.
