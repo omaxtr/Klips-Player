@@ -95,8 +95,7 @@
 
       <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-scanlines"></div>
       <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-tracking-glitch"></div>
-      <!-- Persistent Static when VHS Filter is ON, or during Rewind Anim -->
-      <div v-if="(cfg.flt === 'vhs' || vhsNoiseActive)" class="vhs-static"></div>
+
 
       <!-- Bg Music -->
       <audio ref="bgAudio" loop :src="cfg.bgMusicUrl" v-if="cfg.bgMusicUrl"></audio>
@@ -1291,33 +1290,12 @@ video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: con
   100% { top: 110%; }
 }
 
-.vhs-static {
-  position: absolute;
-  inset: 0;
-  z-index: 190;
-  background: 
-    repeating-radial-gradient(#000 0 0.0001%, #fff 0 0.0002%) 50% 0/2500px 2500px,
-    repeating-conic-gradient(#000 0 0.0001%, #fff 0 0.0002%) 50% 50%/2500px 2500px;
-  background-blend-mode: difference;
-  animation: static-shift 0.1s infinite alternate;
-  opacity: 0.3; /* Increased from 0.15 */
-  mix-blend-mode: hard-light; /* Stronger blend */
-  pointer-events: none;
-}
-
 /* REMOVED CHROMATIC ABERRATION OVERLAYS TO KILL PURPLE TINT */
 /* The user hates the purple hue, so we remove the global color overlays. */
 #view.vhs-look::before, #view.vhs-look::after {
   display: none; 
 }
 
-.vhs-filter {
-  filter: contrast(1.1) brightness(1.1);
-}
-@keyframes static-shift {
-  0% { transform: scale(1); background-position: 0% 0%; }
-  100% { transform: scale(1.1); background-position: 10% 10%; }
-}
 
 @keyframes vhs-rewind {
   0% { transform: scale(1) translateY(0); filter: blur(0) contrast(1) brightness(1); }
