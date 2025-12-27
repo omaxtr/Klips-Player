@@ -83,17 +83,18 @@
       <div id="flash" :style="{ opacity: flashOpacity }"></div>
       
       <!-- VHS Noise Layer -->
-      <div v-if="cfg.filter === 'vhs' || cfg.anim === 'vhs'" class="vhs-osd">
+      <!-- Always show if Filter is VHS OR Animation is VHS -->
+      <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-osd">
         <div class="osd-top-left">PLAY ▶</div>
         <div class="osd-top-right">REC <span class="blink-dot">●</span></div>
         <div class="osd-bottom-left">SP</div>
         <div class="osd-bottom-right">{{ currentDate }}</div>
       </div>
 
-      <div v-if="cfg.filter === 'vhs' || cfg.anim === 'vhs'" class="vhs-scanlines"></div>
-      <div v-if="cfg.filter === 'vhs' || cfg.anim === 'vhs'" class="vhs-tracking-glitch"></div>
+      <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-scanlines"></div>
+      <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-tracking-glitch"></div>
       <!-- Persistent Static when VHS Filter is ON, or during Rewind Anim -->
-      <div v-if="cfg.filter === 'vhs' || vhsNoiseActive" class="vhs-static"></div>
+      <div v-if="(cfg.flt === 'vhs' || vhsNoiseActive)" class="vhs-static"></div>
 
       <!-- Bg Music -->
       <audio ref="bgAudio" loop :src="cfg.bgMusicUrl" v-if="cfg.bgMusicUrl"></audio>
@@ -536,16 +537,20 @@ export default {
       if (!this.cfg) return {};
       let background = this.cfg.dc || '#111';
       let blur = 'none';
+      let backgroundColor = this.cfg.dc; // Default solid color
+
       if (this.cfg.dt === 'carbon') background = `radial-gradient(black 15%,transparent 16%) 0 0,radial-gradient(black 15%,transparent 16%) 8px 8px, ${this.cfg.dc}`;
       if (this.cfg.dt === 'wood') background = 'linear-gradient(90deg, #5D4037, #3E2723)';
       if (this.cfg.dt === 'blur') { 
-        background = this.cfg.dc.length === 7 ? this.cfg.dc + '80' : 'rgba(0,0,0,0.5)'; // 50% opacity if hex, otherwise default to rgba
+        // Fix: Use 30% white for glass effect + blur
+        background = 'rgba(255, 255, 255, 0.1)'; 
+        backgroundColor = 'transparent'; // Ensure no solid color override
         blur = `blur(${this.cfg.bl || 10}px)`; 
       }
       if (this.cfg.di) background = `url(${this.cfg.di}) center/cover no-repeat`;
       return { 
         background, 
-        backgroundColor: this.cfg.dc, 
+        backgroundColor, 
         transitionDuration: (this.cfg.dur || 0.8) + 's',
         backdropFilter: blur,
         webkitBackdropFilter: blur
@@ -587,18 +592,21 @@ export default {
     previewDoorStyle() {
       const st = this.form;
       let background = st.doorColor;
+      let backgroundColor = st.doorColor;
       let blur = 'none';
+      
       if (st.doorTex === 'carbon') background = `radial-gradient(black 15%,transparent 16%) 0 0,radial-gradient(black 15%,transparent 16%) 8px 8px, ${st.doorColor}`;
       if (st.doorTex === 'wood') background = 'linear-gradient(90deg, #5D4037, #3E2723)';
       if (st.doorTex === 'blur') { 
-        // Fix: Force transparent background
-        background = st.doorColor.length === 7 ? st.doorColor + '80' : st.doorColor; // 50% opacity
-        blur = `blur(10px)`; 
+         // Fix: Transparent bg for preview too
+         background = 'rgba(255, 255, 255, 0.15)'; 
+         backgroundColor = 'transparent';
+         blur = `blur(10px)`; 
       }
       if (st.doorImg) background = `url(${st.doorImg}) center/cover no-repeat`;
       return { 
         background, 
-        backgroundColor: st.doorColor, 
+        backgroundColor, 
         transitionDuration: st.dur + 's',
         backdropFilter: blur,
         webkitBackdropFilter: blur
