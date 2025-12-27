@@ -87,8 +87,10 @@
       <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-osd">
         <div class="osd-top-left">PLAY ▶</div>
         <div class="osd-top-right">REC <span class="blink-dot">●</span></div>
-        <div class="osd-bottom-left">SP</div>
-        <div class="osd-bottom-right">{{ currentDate }}</div>
+        <div class="osd-bottom-left" style="max-width: 60%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+           {{ activeClip ? activeClip.title : 'SP' }}
+        </div>
+        <div class="osd-bottom-right">{{ activeClip ? formatDate(activeClip.created_at) : currentDate }}</div>
       </div>
 
       <div v-if="(cfg.flt === 'vhs' || cfg.anim === 'vhs')" class="vhs-scanlines"></div>
@@ -542,9 +544,9 @@ export default {
       if (this.cfg.dt === 'carbon') background = `radial-gradient(black 15%,transparent 16%) 0 0,radial-gradient(black 15%,transparent 16%) 8px 8px, ${this.cfg.dc}`;
       if (this.cfg.dt === 'wood') background = 'linear-gradient(90deg, #5D4037, #3E2723)';
       if (this.cfg.dt === 'blur') { 
-        // Fix: Use 30% white for glass effect + blur
-        background = 'rgba(255, 255, 255, 0.1)'; 
-        backgroundColor = 'transparent'; // Ensure no solid color override
+        // Fix: Use 10% white for glass effect + blur. FORCE transparency.
+        background = 'rgba(255, 255, 255, 0.05)'; 
+        backgroundColor = 'rgba(0,0,0,0) !important'; // Force override
         blur = `blur(${this.cfg.bl || 10}px)`; 
       }
       if (this.cfg.di) background = `url(${this.cfg.di}) center/cover no-repeat`;
@@ -553,7 +555,8 @@ export default {
         backgroundColor, 
         transitionDuration: (this.cfg.dur || 0.8) + 's',
         backdropFilter: blur,
-        webkitBackdropFilter: blur
+        webkitBackdropFilter: blur,
+        border: this.cfg.dt === 'blur' ? '1px solid rgba(255,255,255,0.1)' : 'none' // Add subtle border for glass
       };
     },
 
@@ -1260,16 +1263,12 @@ video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: con
 
 .vhs-scanlines {
   position: absolute;
-  inset: 0;
-  z-index: 170;
-  background: linear-gradient(
-    rgba(18, 16, 16, 0) 50%, 
-    rgba(0, 0, 0, 0.5) 50%
-  );
-  background-size: 100% 4px; /* Back to thinner but sharper */
+  top: 0; left: 0; width: 100%; height: 100%;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), rgba(255,255,255,0) 50%, rgba(0,0,0,0.5) 50%, rgba(0,0,0,0.5));
+  background-size: 100% 4px;
   pointer-events: none;
-  opacity: 0.8; /* Much more visible */
-  z-index: 170;
+  z-index: 180;
+  opacity: 0.7; /* Increased visibility */
 }
 
 .vhs-tracking-glitch {
