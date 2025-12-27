@@ -525,7 +525,10 @@ export default {
       let blur = 'none';
       if (this.cfg.dt === 'carbon') background = `radial-gradient(black 15%,transparent 16%) 0 0,radial-gradient(black 15%,transparent 16%) 8px 8px, ${this.cfg.dc}`;
       if (this.cfg.dt === 'wood') background = 'linear-gradient(90deg, #5D4037, #3E2723)';
-      if (this.cfg.dt === 'glass') { background = 'rgba(255,255,255,0.1)'; blur = `blur(${this.cfg.bl || 10}px)`; }
+      if (this.cfg.dt === 'blur') { 
+        background = this.cfg.dc.length === 7 ? this.cfg.dc + '80' : 'rgba(0,0,0,0.5)'; // 50% opacity if hex, otherwise default to rgba
+        blur = `blur(${this.cfg.bl || 10}px)`; 
+      }
       if (this.cfg.di) background = `url(${this.cfg.di}) center/cover no-repeat`;
       return { 
         background, 
@@ -574,7 +577,11 @@ export default {
       let blur = 'none';
       if (st.doorTex === 'carbon') background = `radial-gradient(black 15%,transparent 16%) 0 0,radial-gradient(black 15%,transparent 16%) 8px 8px, ${st.doorColor}`;
       if (st.doorTex === 'wood') background = 'linear-gradient(90deg, #5D4037, #3E2723)';
-      if (st.doorTex === 'glass') { background = 'rgba(255,255,255,0.1)'; blur = `blur(${st.blurStr}px)`; }
+      if (st.doorTex === 'blur') { 
+        // Fix: Force transparent background
+        background = st.doorColor.length === 7 ? st.doorColor + '80' : st.doorColor; // 50% opacity
+        blur = `blur(10px)`; 
+      }
       if (st.doorImg) background = `url(${st.doorImg}) center/cover no-repeat`;
       return { 
         background, 
