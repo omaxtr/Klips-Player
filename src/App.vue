@@ -330,6 +330,7 @@
         </div>
 
         <div class="actions">
+          <p style="font-size: 0.8rem; color: #ffae42; margin-bottom: 5px;">⚠️ Pop-up: Closes this config page.</p>
           <button @click="openPlayer" class="apply-btn">Launch Player</button>
           <button @click="testAnim" class="test-btn">Test Animation</button>
         </div>
@@ -634,6 +635,11 @@ export default {
     setInterval(this.updateDate, 1000);
   },
 
+  unmounted() {
+    if (this.swapTimeout) clearTimeout(this.swapTimeout);
+    if (this.audioCtx && this.audioCtx.state !== 'closed') this.audioCtx.close();
+  },
+
   methods: {
     updateDate() {
       const now = new Date();
@@ -689,6 +695,10 @@ export default {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 1.5);
         osc.start();
         osc.stop(t + 1.5);
+        setTimeout(() => {
+          osc.disconnect();
+          gain.disconnect();
+        }, 2000);
         this.playStaticNoise(1.5);
       } 
       else if (config.transSound === 'whoosh') {
@@ -715,6 +725,12 @@ export default {
         filter.connect(nGain);
         nGain.connect(this.audioCtx.destination);
         noise.start();
+        noise.stop(t + 1.0);
+        setTimeout(() => {
+            noise.disconnect();
+            filter.disconnect();
+            nGain.disconnect();
+        }, 1500);
       }
       else if (config.transSound === 'ding') {
         // Simple Sine Decay
@@ -724,6 +740,10 @@ export default {
         gain.gain.exponentialRampToValueAtTime(0.001, t + 1.0);
         osc.start();
         osc.stop(t + 1);
+        setTimeout(() => {
+            osc.disconnect();
+            gain.disconnect();
+        }, 1500);
       }
       else if (config.transSound === 'glitch') {
         // Random Frequency Jumps
@@ -765,6 +785,12 @@ export default {
       filter.connect(noiseGain);
       noiseGain.connect(this.audioCtx.destination);
       noise.start();
+      noise.stop(this.audioCtx.currentTime + duration);
+      setTimeout(() => {
+        noise.disconnect();
+        filter.disconnect();
+        noiseGain.disconnect();
+      }, (duration * 1000) + 500);
     },
     parseConfig(p) {
       this.cfg = {
@@ -859,7 +885,7 @@ export default {
         });
         
         const data = await res.json();
-        console.log("Twitch Combined Response:", data);
+        // console.log("Twitch Combined Response:", data);
         
         const result = data[0];
         if (result.errors) throw new Error(result.errors[0].message);
@@ -1084,12 +1110,33 @@ export default {
         else { this.vidClass2 = 'vid-hidden'; this.vidClass1 = 'vid-center'; }
       }
       this.activeClip = this.clips[nextIdx];
-      nextV.play();
+      
+      // Robust Playback: Try to play, if fails, mute and try again, if fails, skip.
+      const playPromise = nextV.play();
+      if (playPromise !== undefined) {
+          playPromise.catch(error => {
+              console.warn("Autoplay blocked. Attempting Muted Fallback.", error);
+              nextV.muted = true;
+              nextV.play().catch(e2 => {
+                 console.error("Playback failed completely. Skipping to next clip.", e2);
+                 // Emergency Skip if video is totally broken
+                 setTimeout(() => {
+                    const emergencyNext = (nextIdx + 1) % this.clips.length;
+                    const emergencyFuture = (nextIdx + 2) % this.clips.length;
+                    this.triggerSwap(emergencyNext, emergencyFuture);
+                 }, 1000);
+              });
+          });
+      }
+
       const temp = this.activeVRef;
       this.activeVRef = this.nextVRef;
       this.nextVRef = temp;
       this.index = nextIdx;
-      setTimeout(() => {
+      
+      // Ensure we don't leak timeouts
+      if (this.swapTimeout) clearTimeout(this.swapTimeout);
+      this.swapTimeout = setTimeout(() => {
         if (this.activeVRef === 'vid1') this.vidClass2 = 'vid-right'; else this.vidClass1 = 'vid-right';
         this.loadVideo(this.$refs[this.nextVRef], this.clips[futureIdx]);
       }, this.cfg.dur * 1000);
@@ -1141,7 +1188,11 @@ export default {
       }
     },
 
-    openPlayer() { window.open(this.obsUrl, '_blank'); },
+    openPlayer() { 
+      if (this.isPlayer) return; // Prevent recursive opening
+      const win = window.open(this.obsUrl, '_blank'); 
+      if (!win) alert("Pop-up blocked! Please allow pop-ups.");
+    },
     copyUrl() { navigator.clipboard.writeText(this.obsUrl); alert('URL Copied! Paste into OBS.'); }
   }
 }
