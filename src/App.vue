@@ -30,7 +30,7 @@
     </div>
 
     <div v-if="isPlayer" class="player-mode">
-    <div id="view" :class="[{ 'vhs-look': cfg.flt === 'vhs' }, activeAnimClass]">
+    <div id="view" :class="[{ 'vhs-look': cfg.flt === 'vhs', 'perf-no-trans': cfg.perf }, activeAnimClass]">
       <video 
         ref="vid1" 
         playsinline 
@@ -1018,7 +1018,7 @@ export default {
       if (this.clips.length > 0) {
         this.activeClip = this.clips[0];
         this.loadVideo(this.$refs.vid1, this.activeClip);
-        if (this.clips.length > 1) this.loadVideo(this.$refs.vid2, this.clips[1]);
+        if (this.clips.length > 1 && !this.cfg.perf) this.loadVideo(this.$refs.vid2, this.clips[1]);
         
         // Auto-start immediately
         this.startPlayer();
@@ -1059,11 +1059,13 @@ export default {
       }
     },
 
-    loadVideo(el, clip) {
-      if (!el || !clip) return;
-      el.src = clip.playable_url;
-      el.volume = this.cfg.vol / 100;
-      el.load();
+    loadVideo(vid, clip) {
+      if (!vid || !clip) return;
+      // In perf mode, we delay loading until playback time to keep only 1 decoder active
+      if (this.cfg.perf && vid !== this.$refs[this.activeVRef]) return; 
+      
+      vid.src = clip.playable_url; // Use proxy URL from fetch
+      vid.load();
     },
 
     onVideoEnded() {
@@ -1079,13 +1081,69 @@ export default {
     },
 
     triggerSwap(nextIdx, futureIdx) {
+      if (this.clips.length === 1) {
+        const vid = this.$refs[this.activeVRef];
+        vid.currentTime = 0;
+        vid.play();
+        return;
+      }
       const activeV = this.$refs[this.activeVRef];
       const nextV = this.$refs[this.nextVRef];
       const dur = this.cfg.dur * 1000;
+      const temp = this.activeVRef;
 
       // Play Sound Check
       this.playTransitionFX();
 
+      if (this.cfg.perf) {
+         // SERIAL SWAP (Black flash, but stable)
+         console.log("Perf Mode: Serial Swap triggered.");
+         
+         // 1. Kill old video completely
+         try {
+           activeV.pause();
+           activeV.removeAttribute('src'); // Brutal clear
+           activeV.load(); 
+         } catch(e) { console.error("Unload error", e); }
+
+         // 2. Wait for decoder release
+         setTimeout(() => {
+            this.activeClip = this.clips[nextIdx];
+            this.activeVRef = this.nextVRef; // Swap refs
+            this.nextVRef = temp;
+            this.index = nextIdx;
+
+            // 3. Start new video (Only NOW do we verify/play)
+            const newActive = this.$refs[this.activeVRef];
+            if (newActive) {
+                newActive.muted = this.isMuted; // Sync mute state
+                this.loadVideo(newActive, this.activeClip); // Load the new video
+                
+                const p = newActive.play();
+                if (p !== undefined) {
+                    p.catch(err => {
+                        console.warn("Perf Play Blocked", err);
+                        newActive.muted = true;
+                        newActive.play().catch(e2 => this.onVideoError({ target: newActive }));
+                    });
+                }
+            }
+
+            // 4. Preload next (with delay)
+            if (this.swapTimeout) clearTimeout(this.swapTimeout);
+            this.swapTimeout = setTimeout(() => {
+                if (this.activeVRef === 'vid1') this.vidClass2 = 'vid-right'; else this.vidClass1 = 'vid-right';
+                // Only load if NOT perf mode or very carefully? 
+                // Actually in perf mode, we should NOT preload to avoid dual decoders.
+                // We will load ON DEMAND at the next swap.
+            }, this.cfg.dur * 1000);
+
+         }, 200); // 200ms safety gap
+         this.handleInfoVisibility();
+         return; // STOP HERE, skipping gapless logic
+      }
+
+      // Standard Gapless Logic (with animations)
       if (this.cfg.anim === 'doors') {
         this.doorsClosing = true;
         setTimeout(() => {
@@ -1155,13 +1213,14 @@ export default {
       const temp = this.activeVRef;
       
       // Aggressive Decoder Release (Performance Mode)
-      if (this.cfg.perf) {
-         try {
-           activeV.pause();
-           activeV.src = "";
-           activeV.load(); // Force CEF to release GPU decoder immediately
-         } catch(e) { /* ignore */ }
-      }
+      // This block is now handled by the serial swap logic in triggerSwap
+      // if (this.cfg.perf) {
+      //    try {
+      //      activeV.pause();
+      //      activeV.src = "";
+      //      activeV.load(); // Force CEF to release GPU decoder immediately
+      //    } catch(e) { /* ignore */ }
+      // }
 
       this.activeVRef = this.nextVRef;
       this.nextVRef = temp;
@@ -1447,5 +1506,14 @@ video { width: 100% !important; height: 100% !important; z-index: 5; object-fit:
 #flash { z-index: 150 !important; }
 .door { z-index: 200 !important; }
 
+
 .door-options { margin-top: 10px; padding: 10px; background: rgba(0,0,0,0.2); border-radius: 6px; }
+
+/* Force disable transitions in Perf Mode */
+.perf-no-trans * {
+  transition: none !important;
+  animation: none !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
 </style>
