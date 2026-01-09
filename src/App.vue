@@ -280,6 +280,17 @@
 
           <div class="group">
             <h3>3. Animation & Effects</h3>
+            <div style="margin-bottom: 2rem; padding: 1rem; border: 1px solid #ffae42; border-radius: 8px; background: rgba(255, 174, 66, 0.1);">
+                <div class="chk-row">
+                  <input type="checkbox" v-model="form.perfMode" id="perf">
+                  <label for="perf" style="color: #ffae42; font-weight:bold; margin:0">⚡ Performance / Safe Mode</label>
+                </div>
+                <p style="font-size: 0.8rem; color: #aaa; margin-top:5px; line-height: 1.4;">
+                  Enables aggressive GPU optimization. Disables Glass/Blur effects, Video Filters, and complex animations. 
+                  <b>Use this if OBS crashes or stutters.</b>
+                </p>
+            </div>
+
             <label>Transition Animation</label>
             <select v-model="form.anim">
               <option value="slide">Slide (Gapless)</option>
@@ -462,7 +473,8 @@ export default {
         doorTex: 'none',
         doorTex: 'none',
         doorImg: '',
-        dateFormat: 'US'
+        dateFormat: 'US',
+        perfMode: false,
       },
 
       cfg: {}
@@ -480,6 +492,7 @@ export default {
     },
 
     videoStyle() {
+      if (this.cfg.perf) return { filter: 'none' };
       const flt = (this.isPlayer ? this.cfg.flt : this.form.filter) || 'none';
       let filter = 'none';
       if (flt === 'vhs') {
@@ -515,13 +528,14 @@ export default {
       const r = parseInt(bg.slice(1,3), 16), g = parseInt(bg.slice(3,5), 16), b = parseInt(bg.slice(5,7), 16);
       let style = { transition: 'opacity 1s' };
       if (this.cfg.shp === 'minimal') { style.background = 'transparent'; }
-      else if (this.cfg.shp === 'glass') {
+      else if (this.cfg.shp === 'glass' && !this.cfg.perf) {
         style.backdropFilter = `blur(${this.cfg.bl}px)`;
         style.background = `rgba(${r},${g},${b},0.3)`;
         style.borderLeft = `4px solid ${this.cfg.hc}`;
       } else {
+        // Fallback for perf mode or standard boxes
         style.background = `rgba(${r},${g},${b},${this.cfg.op})`;
-        if (this.cfg.shp === 'box') style.borderLeft = `4px solid ${this.cfg.hc}`;
+        if (this.cfg.shp === 'box' || (this.cfg.shp === 'glass' && this.cfg.perf)) style.borderLeft = `4px solid ${this.cfg.hc}`;
         if (this.cfg.shp === 'rounded') style.borderRadius = '20px';
       }
       return style;
@@ -556,9 +570,9 @@ export default {
         background, 
         backgroundColor, 
         transitionDuration: (this.cfg.dur || 0.8) + 's',
-        backdropFilter: blur,
-        webkitBackdropFilter: blur,
-        border: this.cfg.dt === 'blur' ? '1px solid rgba(255,255,255,0.1)' : 'none' // Add subtle border for glass
+        backdropFilter: this.cfg.perf ? 'none' : blur,
+        webkitBackdropFilter: this.cfg.perf ? 'none' : blur,
+        border: (this.cfg.dt === 'blur' && !this.cfg.perf) ? '1px solid rgba(255,255,255,0.1)' : 'none'
       };
     },
 
@@ -838,7 +852,8 @@ export default {
         bgMusicVol: parseInt(p.get('bgMusicVol') || 20),
         transSound: p.get('transSound') || 'vhs',
         transUrl: p.get('transUrl') || '',
-        dateFormat: p.get('dateFormat') || 'MM/DD/YYYY HH:mm'
+        dateFormat: p.get('dateFormat') || 'MM/DD/YYYY HH:mm',
+        perf: p.get('perfMode') === 'true'
       };
       // Legacy mapping
       if (p.has('showTimer')) this.cfg.tm = p.get('showTimer') !== 'false';
@@ -1138,6 +1153,16 @@ export default {
       }
 
       const temp = this.activeVRef;
+      
+      // Aggressive Decoder Release (Performance Mode)
+      if (this.cfg.perf) {
+         try {
+           activeV.pause();
+           activeV.src = "";
+           activeV.load(); // Force CEF to release GPU decoder immediately
+         } catch(e) { /* ignore */ }
+      }
+
       this.activeVRef = this.nextVRef;
       this.nextVRef = temp;
       this.index = nextIdx;
