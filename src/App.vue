@@ -1113,7 +1113,7 @@ export default {
             this.nextVRef = temp;
             this.index = nextIdx;
 
-            // 3. Start new video (Only NOW do we verify/play)
+            // 3. Start new video (Only NOW do we load/play)
             const newActive = this.$refs[this.activeVRef];
             if (newActive) {
                 newActive.muted = this.isMuted; // Sync mute state
@@ -1129,14 +1129,17 @@ export default {
                 }
             }
 
-            // 4. Preload next (with delay)
-            if (this.swapTimeout) clearTimeout(this.swapTimeout);
-            this.swapTimeout = setTimeout(() => {
-                if (this.activeVRef === 'vid1') this.vidClass2 = 'vid-right'; else this.vidClass1 = 'vid-right';
-                // Only load if NOT perf mode or very carefully? 
-                // Actually in perf mode, we should NOT preload to avoid dual decoders.
-                // We will load ON DEMAND at the next swap.
-            }, this.cfg.dur * 1000);
+            // 4. Load the NEXT clip into the inactive video (after current starts playing)
+            // This ensures we have it ready for the next swap without dual decoding
+            setTimeout(() => {
+                const inactiveVid = this.$refs[this.nextVRef];
+                if (inactiveVid && this.clips[futureIdx]) {
+                    console.log("Perf Mode: Preloading next clip", futureIdx);
+                    this.loadVideo(inactiveVid, this.clips[futureIdx]);
+                    if (this.activeVRef === 'vid1') this.vidClass2 = 'vid-right'; 
+                    else this.vidClass1 = 'vid-right';
+                }
+            }, 500); // Load next clip 500ms after current starts (to avoid overlap)
 
          }, 200); // 200ms safety gap
          this.handleInfoVisibility();
