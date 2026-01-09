@@ -40,6 +40,7 @@
         @ended="onVideoEnded"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onMetadataLoaded"
+        @error="onVideoError"
       ></video>
       <video 
         ref="vid2" 
@@ -50,6 +51,7 @@
         @ended="onVideoEnded"
         @timeupdate="onTimeUpdate"
         @loadedmetadata="onMetadataLoaded"
+        @error="onVideoError"
       ></video>
       <!-- Improved Timer -->
       <div id="timer" v-if="cfg.tm && activeClip" :style="timerStyle">
@@ -330,8 +332,8 @@
         </div>
 
         <div class="actions">
-          <p style="font-size: 0.8rem; color: #ffae42; margin-bottom: 5px;">⚠️ Pop-up: Closes this config page.</p>
-          <button @click="openPlayer" class="apply-btn">Launch Player</button>
+          <p style="font-size: 0.8rem; color: #ffae42; margin-bottom: 5px;">⚠️ Copy URL to OBS Browser Source for best stability.</p>
+          <button @click="openPlayer" class="apply-btn">Launch Player (Here)</button>
           <button @click="testAnim" class="test-btn">Test Animation</button>
         </div>
       </aside>
@@ -632,11 +634,19 @@ export default {
       }
     }
     this.updateDate();
-    setInterval(this.updateDate, 1000);
+    this.dateInterval = setInterval(this.updateDate, 1000);
   },
 
   unmounted() {
     if (this.swapTimeout) clearTimeout(this.swapTimeout);
+    if (this.dateInterval) clearInterval(this.dateInterval);
+    
+    // cleanup videos
+    const v1 = this.$refs.vid1;
+    const v2 = this.$refs.vid2;
+    if(v1) { v1.pause(); v1.src = ""; v1.load(); }
+    if(v2) { v2.pause(); v2.src = ""; v2.load(); }
+
     if (this.audioCtx && this.audioCtx.state !== 'closed') this.audioCtx.close();
   },
 
@@ -1118,13 +1128,11 @@ export default {
               console.warn("Autoplay blocked. Attempting Muted Fallback.", error);
               nextV.muted = true;
               nextV.play().catch(e2 => {
+                  // Emergency Skip if video is totally broken
                  console.error("Playback failed completely. Skipping to next clip.", e2);
-                 // Emergency Skip if video is totally broken
                  setTimeout(() => {
-                    const emergencyNext = (nextIdx + 1) % this.clips.length;
-                    const emergencyFuture = (nextIdx + 2) % this.clips.length;
-                    this.triggerSwap(emergencyNext, emergencyFuture);
-                 }, 1000);
+                    this.onVideoError({ target: nextV });
+                 }, 500);
               });
           });
       }
@@ -1154,6 +1162,23 @@ export default {
         this.timeLeft = Math.ceil(v.duration - v.currentTime);
         this.currentDuration = v.duration; // Ensure it's in sync
       }
+    },
+
+    onVideoError(e) {
+      console.warn("Video Error detected (Corrupt/403/Decode):", e);
+      // Prevent rapid error loops
+      const now = Date.now();
+      if (this.lastError && (now - this.lastError < 1000)) return; 
+      this.lastError = now;
+
+      // Force skip to next
+      const nextIdx = (this.index + 1) % this.clips.length;
+      const futureIdx = (this.index + 2) % this.clips.length;
+      
+      console.log("Skipping corrupt clip ->", nextIdx);
+      setTimeout(() => {
+        this.triggerSwap(nextIdx, futureIdx);
+      }, 500); // short delay to avoid CPU spin
     },
 
     formatDate(date) {
@@ -1189,9 +1214,9 @@ export default {
     },
 
     openPlayer() { 
-      if (this.isPlayer) return; // Prevent recursive opening
-      const win = window.open(this.obsUrl, '_blank'); 
-      if (!win) alert("Pop-up blocked! Please allow pop-ups.");
+      if (this.isPlayer) return; 
+      // navigate in-place to prevent new window/OBS crash
+      window.location.href = this.obsUrl;
     },
     copyUrl() { navigator.clipboard.writeText(this.obsUrl); alert('URL Copied! Paste into OBS.'); }
   }
