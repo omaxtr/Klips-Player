@@ -1189,11 +1189,19 @@ export default {
 
     performSwap(activeV, nextV, nextIdx, futureIdx) {
       if (this.cfg.anim === 'slide') {
+        // Slide animation: move old video left, bring new video to center
         if (this.activeVRef === 'vid1') { this.vidClass1 = 'vid-left'; this.vidClass2 = 'vid-center'; }
         else { this.vidClass2 = 'vid-left'; this.vidClass1 = 'vid-center'; }
       } else {
-        if (this.activeVRef === 'vid1') { this.vidClass1 = 'vid-hidden'; this.vidClass2 = 'vid-center'; }
-        else { this.vidClass2 = 'vid-hidden'; this.vidClass1 = 'vid-center'; }
+        // Other animations: ensure new video is on top with higher z-index
+        if (this.activeVRef === 'vid1') { 
+          this.vidClass2 = 'vid-center'; // New video visible on top (z-index: 5)
+          this.vidClass1 = 'vid-right';   // Old video moved away (z-index: 1)
+        }
+        else { 
+          this.vidClass1 = 'vid-center'; // New video visible on top (z-index: 5)
+          this.vidClass2 = 'vid-right';   // Old video moved away (z-index: 1)
+        }
       }
       this.activeClip = this.clips[nextIdx];
       
